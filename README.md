@@ -27,6 +27,8 @@ In dev mode:
 - HTML/CSS assets auto-copy
 - Electron auto-restarts when built files change
 - If Electron crashes, `nodemon` waits and auto-restarts after next file change
+- Runtime bar on the LED panel shows save state (`Pending/Saving/Saved`) and FPS/heap info
+- Runtime bar also includes app-level CPU and memory (MB) diagnostics
 
 ## Build
 ```bash
@@ -40,6 +42,7 @@ npm run build
 - 4 core actions (Feed, Play, Clean, Sleep)
 - Local state save/load (JSON)
 - OpenAI chat integration with automatic fallback response
+- In-app pet settings (name and personality: friend/junior/coach)
 
 ## Project Structure
 - `src/main`: Electron main/preload

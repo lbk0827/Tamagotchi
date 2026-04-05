@@ -14,6 +14,7 @@
       </header>
 
       <section class="egg-frame">
+        <div class="drag-handle" aria-hidden="true"></div>
         <div class="led-panel">
           <div class="pet-header">
             <span id="pet-name">Mame</span>
@@ -26,6 +27,10 @@
           </div>
 
           <div class="status-grid" id="status-grid"></div>
+          <div class="runtime-bar">
+            <span id="save-state">Saved</span>
+            <span id="perf-state">FPS --</span>
+          </div>
         </div>
 
         <div class="actions no-drag">
@@ -38,6 +43,16 @@
         <div class="chat no-drag">
           <input id="chat-input" type="text" maxlength="120" placeholder="펫에게 말 걸기..." />
           <button id="chat-send">Send</button>
+        </div>
+
+        <div class="pet-settings no-drag">
+          <input id="pet-name-input" type="text" maxlength="16" placeholder="펫 이름" />
+          <select id="personality-select">
+            <option value="friend">Friend</option>
+            <option value="junior">Junior</option>
+            <option value="coach">Coach</option>
+          </select>
+          <button id="apply-settings">Apply</button>
         </div>
       </section>
     </main>

@@ -32,7 +32,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 
 .window-controls {
@@ -57,7 +57,14 @@ body {
   -webkit-app-region: no-drag;
 }
 
+button,
+input,
+select {
+  -webkit-app-region: no-drag;
+}
+
 .egg-frame {
+  position: relative;
   width: 340px;
   height: 500px;
   border-radius: 48% 48% 44% 44% / 55% 55% 40% 40%;
@@ -70,6 +77,18 @@ body {
   align-items: center;
   padding: 70px 24px 24px;
   gap: 12px;
+  -webkit-app-region: no-drag;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 30px;
+  width: 180px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px dashed rgba(80, 60, 26, 0.45);
+  -webkit-app-region: drag;
 }
 
 .led-panel {
@@ -84,6 +103,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  -webkit-app-region: no-drag;
 }
 
 .pet-header {
@@ -114,8 +134,14 @@ body {
 }
 
 .pet {
-  font-size: 38px;
+  white-space: pre;
+  font-family: "Courier New", "SFMono-Regular", monospace;
+  font-size: 18px;
+  line-height: 1.08;
+  letter-spacing: 0.2px;
+  text-align: center;
   color: #17231d;
+  text-shadow: 1px 0 #2b3a32;
   animation: idle-bounce 1.8s ease-in-out infinite;
 }
 
@@ -148,6 +174,16 @@ body {
   color: #1e2d26;
 }
 
+.runtime-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: #293930;
+  border-top: 1px dashed rgba(40, 56, 47, 0.25);
+  padding-top: 4px;
+}
+
 .actions {
   width: 100%;
   display: grid;
@@ -177,6 +213,23 @@ body {
   border: 1px solid #76603b;
   border-radius: 10px;
   padding: 8px 10px;
+  font-size: 12px;
+  background: #fffdf4;
+  color: #2d2414;
+}
+
+.pet-settings {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 90px 64px;
+  gap: 8px;
+}
+
+.pet-settings input,
+.pet-settings select {
+  border: 1px solid #76603b;
+  border-radius: 10px;
+  padding: 7px 8px;
   font-size: 12px;
   background: #fffdf4;
   color: #2d2414;

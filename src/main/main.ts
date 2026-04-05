@@ -23,6 +23,11 @@ type PetChatResult = {
   source: "ai" | "fallback";
 };
 
+type RuntimeMetrics = {
+  appCpuPercent: number;
+  appMemoryMb: number;
+};
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
@@ -222,6 +227,16 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 }
 
+function getRuntimeMetrics(): RuntimeMetrics {
+  const metrics = app.getAppMetrics();
+  const cpu = metrics.reduce((acc, item) => acc + item.cpu.percentCPUUsage, 0);
+  const memoryKb = metrics.reduce((acc, item) => acc + item.memory.workingSetSize, 0);
+  return {
+    appCpuPercent: Number(cpu.toFixed(1)),
+    appMemoryMb: Number((memoryKb / 1024).toFixed(1))
+  };
+}
+
 app.whenReady().then(() => {
   logger.info("App ready.");
   ipcMain.handle("pet:load-state", async () => {
@@ -244,9 +259,7 @@ app.whenReady().then(() => {
   ipcMain.handle("pet:chat", async (_, input: { message: string; state: PetState }) => {
     return callAiReply(input.message, input.state);
   });
-  ipcMain.on("pet:set-ignore-mouse", (_, ignore: boolean) => {
-    mainWindow?.setIgnoreMouseEvents(ignore, { forward: true });
-  });
+  ipcMain.handle("pet:get-runtime-metrics", async () => getRuntimeMetrics());
   ipcMain.on("pet:window-hide", () => mainWindow?.hide());
   ipcMain.on("pet:window-quit", () => app.quit());
 

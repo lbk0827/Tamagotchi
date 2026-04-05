@@ -1,12 +1,25 @@
-const statusGrid = document.getElementById("status-grid") as HTMLDivElement;
-const petEl = document.getElementById("pet") as HTMLDivElement;
-const petNameEl = document.getElementById("pet-name") as HTMLSpanElement;
-const petModeEl = document.getElementById("pet-mode") as HTMLSpanElement;
-const speechEl = document.getElementById("speech") as HTMLDivElement;
-const inputEl = document.getElementById("chat-input") as HTMLInputElement;
-const sendBtn = document.getElementById("chat-send") as HTMLButtonElement;
-const hideBtn = document.getElementById("hide-btn") as HTMLButtonElement;
-const quitBtn = document.getElementById("quit-btn") as HTMLButtonElement;
+const statusGrid = document.getElementById("status-grid") as HTMLDivElement | null;
+const petEl = document.getElementById("pet") as HTMLDivElement | null;
+const petNameEl = document.getElementById("pet-name") as HTMLSpanElement | null;
+const petModeEl = document.getElementById("pet-mode") as HTMLSpanElement | null;
+const speechEl = document.getElementById("speech") as HTMLDivElement | null;
+const inputEl = document.getElementById("chat-input") as HTMLInputElement | null;
+const sendBtn = document.getElementById("chat-send") as HTMLButtonElement | null;
+const hideBtn = document.getElementById("hide-btn") as HTMLButtonElement | null;
+const quitBtn = document.getElementById("quit-btn") as HTMLButtonElement | null;
+const saveStateEl = document.getElementById("save-state") as HTMLSpanElement | null;
+const perfStateEl = document.getElementById("perf-state") as HTMLSpanElement | null;
+const petNameInputEl = document.getElementById("pet-name-input") as HTMLInputElement | null;
+const personalitySelectEl = document.getElementById("personality-select") as HTMLSelectElement | null;
+const applySettingsBtn = document.getElementById("apply-settings") as HTMLButtonElement | null;
+
+function setSaveText(text: string) {
+  if (saveStateEl) saveStateEl.textContent = text;
+}
+
+function setPerfText(text: string) {
+  if (perfStateEl) perfStateEl.textContent = text;
+}
 
 const defaultState = (): PetState => ({
   hunger: 80,
@@ -22,7 +35,24 @@ const defaultState = (): PetState => ({
 let state: PetState = defaultState();
 let speechTimer: number | null = null;
 let isChatting = false;
-let ignoreMouse = false;
+let saveTimer: number | null = null;
+let isPersisting = false;
+let hasDirtyState = false;
+let lastSaveFailNotifiedAt = 0;
+
+const bridge = window.aiPet ?? {
+  loadState: async () => defaultState(),
+  saveState: async () => true,
+  chat: async (message: string, current: PetState) => {
+    const mode = modeOf(current);
+    const prefix = current.personality === "coach" ? "좋아, " : current.personality === "junior" ? "헤헤, " : "음, ";
+    if (mode === "Sick") return { ok: false, source: "fallback" as const, reply: `${prefix}나 조금 힘들어.` };
+    return { ok: false, source: "fallback" as const, reply: `${prefix}${message.slice(0, 12)}... 재밌다!` };
+  },
+  getRuntimeMetrics: async () => ({ appCpuPercent: 0, appMemoryMb: 0 }),
+  hideWindow: () => undefined,
+  quitApp: () => undefined
+};
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
 
@@ -44,13 +74,14 @@ function modeOf(s: PetState): "Happy" | "Normal" | "Tired" | "Sick" {
 }
 
 function petFace(mode: ReturnType<typeof modeOf>): string {
-  if (mode === "Happy") return "^ᵕ^";
-  if (mode === "Tired") return "-.- z";
-  if (mode === "Sick") return "x_x";
-  return "◕‿◕";
+  if (mode === "Happy") return " /\\_/\\\n( ^ o ^ )\n / > < \\";
+  if (mode === "Tired") return " /\\_/\\\n( - . - )\n z  z  z";
+  if (mode === "Sick") return " /\\_/\\\n( x _ x )\n  /   \\";
+  return " /\\_/\\\n( o . o )\n /  ^  \\";
 }
 
 function render() {
+  if (!petNameEl || !petModeEl || !petEl || !statusGrid) return;
   const mode = modeOf(state);
 
   petNameEl.textContent = state.petName;
@@ -71,12 +102,49 @@ function render() {
 }
 
 function setSpeech(text: string, keepMs = 2600) {
+  if (!speechEl) return;
   speechEl.textContent = text;
   if (speechTimer) window.clearTimeout(speechTimer);
   speechTimer = window.setTimeout(() => {
     speechEl.textContent = "";
     speechTimer = null;
   }, keepMs);
+}
+
+function schedulePersist(delayMs = 1_200) {
+  if (saveTimer) window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    void persist();
+    saveTimer = null;
+  }, delayMs);
+}
+
+function markDirty() {
+  hasDirtyState = true;
+  setSaveText("Pending...");
+  schedulePersist();
+}
+
+async function persist() {
+  if (isPersisting || !hasDirtyState) return;
+  isPersisting = true;
+  setSaveText("Saving...");
+
+  const ok = await bridge.saveState(state);
+  if (ok) {
+    hasDirtyState = false;
+    setSaveText("Saved");
+  } else {
+    setSaveText("Retry");
+    const now = Date.now();
+    if (now - lastSaveFailNotifiedAt > 30_000) {
+      setSpeech("저장이 잠깐 실패했어. 곧 다시 시도할게.", 2800);
+      lastSaveFailNotifiedAt = now;
+    }
+    schedulePersist(4_000);
+  }
+
+  isPersisting = false;
 }
 
 function applyAction(action: "feed" | "play" | "clean" | "sleep") {
@@ -107,7 +175,7 @@ function applyAction(action: "feed" | "play" | "clean" | "sleep") {
 
   state.lastSeen = new Date().toISOString();
   render();
-  void persist();
+  markDirty();
 }
 
 function applyTimeDecay(minutes: number) {
@@ -132,33 +200,51 @@ function onTick() {
   applyTimeDecay(1);
   state.lastSeen = new Date().toISOString();
   render();
+  markDirty();
 }
 
-async function persist() {
-  const ok = await window.aiPet.saveState(state);
-  if (!ok) {
-    setSpeech("저장이 잠깐 실패했어. 곧 다시 시도할게.", 2800);
-  }
-}
+function startPerfMonitor() {
+  let frameCount = 0;
+  let lastMeasureAt = performance.now();
 
-function updateMousePassthrough(target: EventTarget | null) {
-  const element = target as HTMLElement | null;
-  const isInsideEgg = Boolean(element?.closest(".egg-frame"));
-  const shouldIgnore = !isInsideEgg;
-  if (shouldIgnore === ignoreMouse) return;
-  ignoreMouse = shouldIgnore;
-  window.aiPet.setIgnoreMouse(shouldIgnore);
+  const rafLoop = async () => {
+    frameCount += 1;
+    const now = performance.now();
+    if (now - lastMeasureAt >= 2000) {
+      const fps = Math.round((frameCount * 1000) / (now - lastMeasureAt));
+      const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
+      let rendererHeapText = "";
+      if (memory?.usedJSHeapSize) {
+        const heapMb = (memory.usedJSHeapSize / 1024 / 1024).toFixed(1);
+        rendererHeapText = ` | Heap ${heapMb}MB`;
+      }
+      try {
+        const runtime = await bridge.getRuntimeMetrics();
+        setPerfText(
+          `FPS ${fps}${rendererHeapText} | CPU ${runtime.appCpuPercent}% | App ${runtime.appMemoryMb}MB`
+        );
+      } catch {
+        setPerfText(`FPS ${fps}${rendererHeapText}`);
+      }
+      frameCount = 0;
+      lastMeasureAt = now;
+    }
+    window.requestAnimationFrame(rafLoop);
+  };
+
+  window.requestAnimationFrame(rafLoop);
 }
 
 async function requestPetReply(userText: string): Promise<void> {
   if (isChatting) return;
+  if (!sendBtn) return;
   isChatting = true;
   sendBtn.disabled = true;
   sendBtn.textContent = "...";
   setSpeech("생각 중이야...");
 
   try {
-    const result = await window.aiPet.chat(userText, state);
+    const result = await bridge.chat(userText, state);
     if (result.source === "fallback") {
       setSpeech(`${result.reply} (fallback)`, 3800);
     } else {
@@ -174,6 +260,8 @@ async function requestPetReply(userText: string): Promise<void> {
 }
 
 function wireEvents() {
+  if (!sendBtn || !inputEl || !hideBtn || !quitBtn) return;
+
   document.querySelectorAll<HTMLButtonElement>("[data-action]").forEach((button) => {
     button.addEventListener("click", () => {
       const action = button.dataset.action as "feed" | "play" | "clean" | "sleep";
@@ -194,34 +282,52 @@ function wireEvents() {
     }
   });
 
-  document.addEventListener("mousemove", (event) => {
-    updateMousePassthrough(event.target);
-  });
-  document.addEventListener("mouseleave", () => {
-    if (!ignoreMouse) {
-      ignoreMouse = true;
-      window.aiPet.setIgnoreMouse(true);
-    }
-  });
-  document.addEventListener("mouseenter", (event) => {
-    updateMousePassthrough(event.target);
-  });
+  hideBtn.addEventListener("click", () => bridge.hideWindow());
+  quitBtn.addEventListener("click", () => bridge.quitApp());
 
-  hideBtn.addEventListener("click", () => window.aiPet.hideWindow());
-  quitBtn.addEventListener("click", () => window.aiPet.quitApp());
+  applySettingsBtn?.addEventListener("click", () => {
+    if (!petNameInputEl || !personalitySelectEl) return;
+    const nextName = petNameInputEl.value.trim();
+    const nextPersonality = personalitySelectEl.value as PetState["personality"];
+
+    if (nextName) {
+      state.petName = nextName.slice(0, 16);
+    }
+    if (nextPersonality === "friend" || nextPersonality === "junior" || nextPersonality === "coach") {
+      state.personality = nextPersonality;
+    }
+
+    state.lastSeen = new Date().toISOString();
+    render();
+    setSpeech(`좋아! 이제 나는 ${state.petName}, 말투는 ${state.personality}.`, 2600);
+    markDirty();
+  });
 
   window.setInterval(() => {
     onTick();
-    void persist();
   }, 60_000);
 
   window.setInterval(() => {
-    void persist();
-  }, 30_000);
+    if (hasDirtyState) {
+      void persist();
+    }
+  }, 90_000);
+
+  window.addEventListener("beforeunload", () => {
+    if (hasDirtyState) {
+      void persist();
+    }
+  });
 }
 
 async function init() {
-  const loaded = await window.aiPet.loadState();
+  if (!statusGrid || !petEl || !petNameEl || !petModeEl || !speechEl) {
+    // eslint-disable-next-line no-console
+    console.error("UI initialization failed: required elements missing.");
+    return;
+  }
+
+  const loaded = await bridge.loadState();
   state = { ...defaultState(), ...loaded };
 
   const now = Date.now();
@@ -236,9 +342,11 @@ async function init() {
 
   state.lastSeen = new Date().toISOString();
   render();
+  if (petNameInputEl) petNameInputEl.value = state.petName;
+  if (personalitySelectEl) personalitySelectEl.value = state.personality;
   wireEvents();
-  window.aiPet.setIgnoreMouse(false);
-  await persist();
+  markDirty();
+  startPerfMonitor();
 }
 
 void init();

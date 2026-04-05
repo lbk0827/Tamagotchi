@@ -16,12 +16,17 @@ declare global {
     source: "ai" | "fallback";
   };
 
+  type RuntimeMetrics = {
+    appCpuPercent: number;
+    appMemoryMb: number;
+  };
+
   interface Window {
     aiPet: {
       loadState: () => Promise<PetState>;
       saveState: (state: PetState) => Promise<boolean>;
       chat: (message: string, state: PetState) => Promise<PetChatResult>;
-      setIgnoreMouse: (ignore: boolean) => void;
+      getRuntimeMetrics: () => Promise<RuntimeMetrics>;
       hideWindow: () => void;
       quitApp: () => void;
     };
