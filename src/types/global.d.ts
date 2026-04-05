@@ -21,6 +21,7 @@ declare global {
       loadState: () => Promise<PetState>;
       saveState: (state: PetState) => Promise<boolean>;
       chat: (message: string, state: PetState) => Promise<PetChatResult>;
+      setIgnoreMouse: (ignore: boolean) => void;
       hideWindow: () => void;
       quitApp: () => void;
     };

@@ -16,6 +16,7 @@ npm install
 cp .env.example .env
 ```
 Set `OPENAI_API_KEY` in `.env` to enable real AI replies.
+Use `LOG_LEVEL=debug|info|warn|error` to control runtime log verbosity.
 
 ## Run (dev)
 ```bash

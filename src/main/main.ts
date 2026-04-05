@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron";
 import path from "node:path";
 import fs from "node:fs/promises";
 import dotenv from "dotenv";
+import { logger } from "./logger";
 
 dotenv.config();
 
@@ -65,6 +66,7 @@ function truncateReply(input: string): string {
 async function callAiReply(userText: string, state: PetState): Promise<PetChatResult> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
+    logger.debug("OPENAI_API_KEY is missing. Using fallback reply.");
     return {
       ok: false,
       reply: localFallbackReply(userText, state),
@@ -107,6 +109,7 @@ async function callAiReply(userText: string, state: PetState): Promise<PetChatRe
     });
 
     if (!response.ok) {
+      logger.warn("OpenAI response not OK. Using fallback.", { status: response.status });
       return {
         ok: false,
         reply: localFallbackReply(userText, state),
@@ -119,6 +122,7 @@ async function callAiReply(userText: string, state: PetState): Promise<PetChatRe
     };
     const aiText = data.choices?.[0]?.message?.content;
     if (!aiText) {
+      logger.warn("OpenAI response missing content. Using fallback.");
       return {
         ok: false,
         reply: localFallbackReply(userText, state),
@@ -131,7 +135,8 @@ async function callAiReply(userText: string, state: PetState): Promise<PetChatRe
       reply: truncateReply(aiText),
       source: "ai"
     };
-  } catch {
+  } catch (error) {
+    logger.warn("OpenAI request failed. Using fallback.", error);
     return {
       ok: false,
       reply: localFallbackReply(userText, state),
@@ -157,7 +162,8 @@ async function loadState(): Promise<PetState> {
       personality: parsed.personality ?? fallback.personality,
       lastSeen: parsed.lastSeen ?? fallback.lastSeen
     };
-  } catch {
+  } catch (error) {
+    logger.warn("Failed to load state. Falling back to default.", error);
     const initial = defaultState();
     await saveState(initial);
     return initial;
@@ -186,6 +192,7 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  logger.info("AI Pet window created.");
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -216,13 +223,29 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
-  ipcMain.handle("pet:load-state", async () => loadState());
+  logger.info("App ready.");
+  ipcMain.handle("pet:load-state", async () => {
+    try {
+      return await loadState();
+    } catch (error) {
+      logger.error("Unhandled load-state error.", error);
+      return defaultState();
+    }
+  });
   ipcMain.handle("pet:save-state", async (_, state: PetState) => {
-    await saveState(state);
-    return true;
+    try {
+      await saveState(state);
+      return true;
+    } catch (error) {
+      logger.error("Failed to save state.", error);
+      return false;
+    }
   });
   ipcMain.handle("pet:chat", async (_, input: { message: string; state: PetState }) => {
     return callAiReply(input.message, input.state);
+  });
+  ipcMain.on("pet:set-ignore-mouse", (_, ignore: boolean) => {
+    mainWindow?.setIgnoreMouseEvents(ignore, { forward: true });
   });
   ipcMain.on("pet:window-hide", () => mainWindow?.hide());
   ipcMain.on("pet:window-quit", () => app.quit());

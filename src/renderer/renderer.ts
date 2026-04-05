@@ -22,6 +22,7 @@ const defaultState = (): PetState => ({
 let state: PetState = defaultState();
 let speechTimer: number | null = null;
 let isChatting = false;
+let ignoreMouse = false;
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
 
@@ -134,7 +135,19 @@ function onTick() {
 }
 
 async function persist() {
-  await window.aiPet.saveState(state);
+  const ok = await window.aiPet.saveState(state);
+  if (!ok) {
+    setSpeech("저장이 잠깐 실패했어. 곧 다시 시도할게.", 2800);
+  }
+}
+
+function updateMousePassthrough(target: EventTarget | null) {
+  const element = target as HTMLElement | null;
+  const isInsideEgg = Boolean(element?.closest(".egg-frame"));
+  const shouldIgnore = !isInsideEgg;
+  if (shouldIgnore === ignoreMouse) return;
+  ignoreMouse = shouldIgnore;
+  window.aiPet.setIgnoreMouse(shouldIgnore);
 }
 
 async function requestPetReply(userText: string): Promise<void> {
@@ -181,6 +194,19 @@ function wireEvents() {
     }
   });
 
+  document.addEventListener("mousemove", (event) => {
+    updateMousePassthrough(event.target);
+  });
+  document.addEventListener("mouseleave", () => {
+    if (!ignoreMouse) {
+      ignoreMouse = true;
+      window.aiPet.setIgnoreMouse(true);
+    }
+  });
+  document.addEventListener("mouseenter", (event) => {
+    updateMousePassthrough(event.target);
+  });
+
   hideBtn.addEventListener("click", () => window.aiPet.hideWindow());
   quitBtn.addEventListener("click", () => window.aiPet.quitApp());
 
@@ -211,6 +237,7 @@ async function init() {
   state.lastSeen = new Date().toISOString();
   render();
   wireEvents();
+  window.aiPet.setIgnoreMouse(false);
   await persist();
 }
 

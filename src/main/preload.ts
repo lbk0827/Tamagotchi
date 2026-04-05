@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("aiPet", {
   saveState: (state: PetState): Promise<boolean> => ipcRenderer.invoke("pet:save-state", state),
   chat: (message: string, state: PetState): Promise<PetChatResult> =>
     ipcRenderer.invoke("pet:chat", { message, state }),
+  setIgnoreMouse: (ignore: boolean): void => ipcRenderer.send("pet:set-ignore-mouse", ignore),
   hideWindow: (): void => ipcRenderer.send("pet:window-hide"),
   quitApp: (): void => ipcRenderer.send("pet:window-quit")
 });
