@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Pet</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="window-controls no-drag">
+        <button id="hide-btn" aria-label="숨기기">-</button>
+        <button id="quit-btn" aria-label="종료">x</button>
+      </header>
+
+      <section class="egg-frame">
+        <div class="led-panel">
+          <div class="pet-header">
+            <span id="pet-name">Mame</span>
+            <span id="pet-mode">Normal</span>
+          </div>
+
+          <div class="pet-stage" id="pet-stage">
+            <div class="pet" id="pet">◕‿◕</div>
+            <div class="speech" id="speech">안녕! 오늘도 같이 놀자.</div>
+          </div>
+
+          <div class="status-grid" id="status-grid"></div>
+        </div>
+
+        <div class="actions no-drag">
+          <button data-action="feed">Feed</button>
+          <button data-action="play">Play</button>
+          <button data-action="clean">Clean</button>
+          <button data-action="sleep">Sleep</button>
+        </div>
+
+        <div class="chat no-drag">
+          <input id="chat-input" type="text" maxlength="120" placeholder="펫에게 말 걸기..." />
+          <button id="chat-send">Send</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>

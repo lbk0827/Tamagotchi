@@ -1,0 +1,30 @@
+{
+  "name": "ai-pet",
+  "version": "0.1.0",
+  "description": "Desktop floating AI tamagotchi",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts-copy-assets.mjs",
+    "dev": "node scripts-copy-assets.mjs && concurrently -k \"tsc -p tsconfig.json --watch\" \"wait-on dist/main/main.js dist/renderer/index.html && electron .\"",
+    "start": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "tamagotchi",
+    "ai-pet"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "concurrently": "^9.2.1",
+    "electron": "^41.1.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2",
+    "wait-on": "^9.0.4"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.0",
+    "electron-store": "^11.0.2"
+  }
+}
