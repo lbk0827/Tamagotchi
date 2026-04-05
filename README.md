@@ -22,6 +22,11 @@ Use `LOG_LEVEL=debug|info|warn|error` to control runtime log verbosity.
 ```bash
 npm run dev
 ```
+In dev mode:
+- TypeScript changes auto-compile
+- HTML/CSS assets auto-copy
+- Electron auto-restarts when built files change
+- If Electron crashes, `nodemon` waits and auto-restarts after next file change
 
 ## Build
 ```bash

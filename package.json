@@ -5,7 +5,10 @@
   "main": "dist/main/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts-copy-assets.mjs",
-    "dev": "node scripts-copy-assets.mjs && concurrently -k \"tsc -p tsconfig.json --watch\" \"wait-on dist/main/main.js dist/renderer/index.html && electron .\"",
+    "watch:ts": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "watch:assets": "node scripts-copy-assets.mjs && chokidar \"src/renderer/index.html\" \"src/renderer/styles.css\" -c \"node scripts-copy-assets.mjs\" --polling --interval 400",
+    "dev:electron": "wait-on dist/main/main.js dist/renderer/index.html && nodemon --legacy-watch --watch dist/main --watch dist/renderer --ext js,html,css --signal SIGTERM --exec \"electron .\"",
+    "dev": "concurrently -k \"npm:watch:ts\" \"npm:watch:assets\" \"npm:dev:electron\"",
     "start": "electron ."
   },
   "keywords": [
@@ -17,8 +20,10 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.5.2",
+    "chokidar-cli": "^3.0.0",
     "concurrently": "^9.2.1",
     "electron": "^41.1.1",
+    "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.2",
     "wait-on": "^9.0.4"

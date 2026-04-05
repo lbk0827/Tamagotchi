@@ -31,6 +31,10 @@
   - 역할: 여러 개발 명령 동시 실행 (`tsc --watch` + Electron 실행)
 - `wait-on`
   - 역할: 빌드 산출물 준비 대기 후 앱 실행
+- `nodemon`
+  - 역할: 빌드 결과 변경 감지 시 Electron 자동 재시작
+- `chokidar-cli`
+  - 역할: HTML/CSS 파일 변경 감지 후 자동 복사 트리거
 
 ### 2.2 런타임 의존성 (dependencies)
 - `dotenv`
@@ -44,6 +48,7 @@
 ```bash
 npm uninstall electron
 npm uninstall typescript ts-node @types/node concurrently wait-on
+npm uninstall nodemon chokidar-cli
 npm uninstall dotenv electron-store
 ```
 
