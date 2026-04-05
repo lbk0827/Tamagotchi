@@ -11,6 +11,12 @@ Desktop floating Tamagotchi-style AI pet prototype.
 npm install
 ```
 
+## Environment
+```bash
+cp .env.example .env
+```
+Set `OPENAI_API_KEY` in `.env` to enable real AI replies.
+
 ## Run (dev)
 ```bash
 npm run dev
@@ -27,7 +33,7 @@ npm run build
 - Core status loop (Hunger, Mood, Energy, Cleanliness, Health)
 - 4 core actions (Feed, Play, Clean, Sleep)
 - Local state save/load (JSON)
-- Simple AI-style fallback chat response
+- OpenAI chat integration with automatic fallback response
 
 ## Project Structure
 - `src/main`: Electron main/preload

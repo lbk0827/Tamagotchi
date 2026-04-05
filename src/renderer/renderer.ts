@@ -21,6 +21,7 @@ const defaultState = (): PetState => ({
 
 let state: PetState = defaultState();
 let speechTimer: number | null = null;
+let isChatting = false;
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
 
@@ -132,19 +133,31 @@ function onTick() {
   render();
 }
 
-function simulateAiReply(userText: string): string {
-  const mode = modeOf(state);
-  const personality = state.personality;
-  const prefix = personality === "coach" ? "좋아, " : personality === "junior" ? "헤헤, " : "음, ";
-
-  if (mode === "Sick") return `${prefix}나 조금 힘들어. Clean이랑 밥 먼저 챙겨줄래?`;
-  if (mode === "Tired") return `${prefix}졸려서 말이 느릴 수도 있어... 그래도 네 얘기 좋아.`;
-  if (userText.includes("사랑") || userText.includes("좋아")) return `${prefix}나도 너 정말 좋아!`;
-  return `${prefix}${userText.slice(0, 12)}... 라고? 같이 있으면 재밌어.`;
-}
-
 async function persist() {
   await window.aiPet.saveState(state);
+}
+
+async function requestPetReply(userText: string): Promise<void> {
+  if (isChatting) return;
+  isChatting = true;
+  sendBtn.disabled = true;
+  sendBtn.textContent = "...";
+  setSpeech("생각 중이야...");
+
+  try {
+    const result = await window.aiPet.chat(userText, state);
+    if (result.source === "fallback") {
+      setSpeech(`${result.reply} (fallback)`, 3800);
+    } else {
+      setSpeech(result.reply, 3600);
+    }
+  } catch {
+    setSpeech("잠깐 생각이 멈췄어. 다시 말해줄래?", 3400);
+  } finally {
+    isChatting = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Send";
+  }
 }
 
 function wireEvents() {
@@ -158,8 +171,8 @@ function wireEvents() {
   sendBtn.addEventListener("click", () => {
     const value = inputEl.value.trim();
     if (!value) return;
-    setSpeech(simulateAiReply(value), 3400);
     inputEl.value = "";
+    void requestPetReply(value);
   });
 
   inputEl.addEventListener("keydown", (event) => {

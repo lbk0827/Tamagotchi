@@ -10,10 +10,17 @@ declare global {
     lastSeen: string;
   };
 
+  type PetChatResult = {
+    ok: boolean;
+    reply: string;
+    source: "ai" | "fallback";
+  };
+
   interface Window {
     aiPet: {
       loadState: () => Promise<PetState>;
       saveState: (state: PetState) => Promise<boolean>;
+      chat: (message: string, state: PetState) => Promise<PetChatResult>;
       hideWindow: () => void;
       quitApp: () => void;
     };

@@ -16,6 +16,12 @@ type PetState = {
   lastSeen: string;
 };
 
+type PetChatResult = {
+  ok: boolean;
+  reply: string;
+  source: "ai" | "fallback";
+};
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
@@ -33,6 +39,108 @@ const defaultState = (): PetState => ({
 });
 
 const clamp = (value: number) => Math.max(0, Math.min(100, value));
+
+function modeOf(s: PetState): "Happy" | "Normal" | "Tired" | "Sick" {
+  if (s.health < 35 || s.cleanliness < 25) return "Sick";
+  if (s.energy < 35) return "Tired";
+  if (s.mood > 70 && s.hunger > 50) return "Happy";
+  return "Normal";
+}
+
+function localFallbackReply(userText: string, state: PetState): string {
+  const mode = modeOf(state);
+  const prefix = state.personality === "coach" ? "좋아, " : state.personality === "junior" ? "헤헤, " : "음, ";
+
+  if (mode === "Sick") return `${prefix}나 조금 힘들어. Clean이랑 밥 먼저 챙겨줄래?`;
+  if (mode === "Tired") return `${prefix}졸려서 말이 느릴 수도 있어... 그래도 네 얘기 좋아.`;
+  if (userText.includes("사랑") || userText.includes("좋아")) return `${prefix}나도 너 정말 좋아!`;
+  return `${prefix}${userText.slice(0, 12)}... 라고? 같이 있으면 재밌어.`;
+}
+
+function truncateReply(input: string): string {
+  const clean = input.replace(/\s+/g, " ").trim();
+  return clean.length <= 140 ? clean : `${clean.slice(0, 137)}...`;
+}
+
+async function callAiReply(userText: string, state: PetState): Promise<PetChatResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return {
+      ok: false,
+      reply: localFallbackReply(userText, state),
+      source: "fallback"
+    };
+  }
+
+  const baseUrl = process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
+  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const timeoutMs = Number(process.env.OPENAI_TIMEOUT_MS ?? "10000");
+  const mode = modeOf(state);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const systemPrompt =
+      `너는 데스크톱 다마고치 AI 펫이다.\n` +
+      `이름: ${state.petName}\n` +
+      `성격: ${state.personality}\n` +
+      `현재 상태: ${mode}, Hunger=${Math.round(state.hunger)}, Mood=${Math.round(state.mood)}, ` +
+      `Energy=${Math.round(state.energy)}, Cleanliness=${Math.round(state.cleanliness)}, Health=${Math.round(state.health)}\n` +
+      "규칙: 한국어로 1~2문장, 140자 이내로 짧고 따뜻하게 답해라. 상태가 안 좋으면 돌봄 행동을 제안해라.";
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.8,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userText }
+        ]
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        reply: localFallbackReply(userText, state),
+        source: "fallback"
+      };
+    }
+
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const aiText = data.choices?.[0]?.message?.content;
+    if (!aiText) {
+      return {
+        ok: false,
+        reply: localFallbackReply(userText, state),
+        source: "fallback"
+      };
+    }
+
+    return {
+      ok: true,
+      reply: truncateReply(aiText),
+      source: "ai"
+    };
+  } catch {
+    return {
+      ok: false,
+      reply: localFallbackReply(userText, state),
+      source: "fallback"
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function loadState(): Promise<PetState> {
   try {
@@ -112,6 +220,9 @@ app.whenReady().then(() => {
   ipcMain.handle("pet:save-state", async (_, state: PetState) => {
     await saveState(state);
     return true;
+  });
+  ipcMain.handle("pet:chat", async (_, input: { message: string; state: PetState }) => {
+    return callAiReply(input.message, input.state);
   });
   ipcMain.on("pet:window-hide", () => mainWindow?.hide());
   ipcMain.on("pet:window-quit", () => app.quit());
